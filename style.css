@@ -1,0 +1,126 @@
+/* #refresh_titles_list_btn 스타일 (설정창용) */
+#refresh_titles_list_btn {
+    border-radius: 12px !important;
+    padding: 8px 18px;
+    font-size: 0.9rem;
+    font-weight: 600;
+
+    background: linear-gradient(135deg, #6db6ff, #2f7be9) !important;
+    color: #fff !important;
+    border: none !important;
+
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: auto !important;
+
+    transition: all 0.2s ease;
+    pointer-events: auto !important;
+    opacity: 1 !important;
+}
+
+#refresh_titles_list_btn:hover {
+    background: linear-gradient(135deg, #4c9dff, #1f6ad1);
+    transform: translateY(-1px);
+}
+
+#refresh_titles_list_btn:active {
+    transform: translateY(0);
+    opacity: 0.92;
+}
+
+/* 버튼 공통 스타일 보정 */
+#refresh_titles_list_btn,
+button#refresh_titles_list_btn,
+#refresh_titles_list_btn.menu_button,
+#refresh_titles_list_btn.blue_button {
+    background: #4a90e2 !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: 8px 16px !important;
+    border-radius: 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+    cursor: pointer !important;
+}
+
+/* 입력창 스타일 */
+.greeting-title-input {
+    background-color: rgba(0, 0, 0, 0.05);
+    border: 1px solid #ccc; 
+    border-radius: 5px;
+    padding: 4px 8px;
+    margin-left: 10px; 
+    font-size: 0.9em;
+    color: var(--SmartThemeBodyColor);
+    width: 180px; 
+    height: 30px;
+    transition: all 0.2s ease;
+}
+
+/* 포커스 시 강조 */
+.greeting-title-input:focus {
+    width: 250px; 
+    background-color: var(--SmartThemeInputBackground);
+    border-color: var(--SmartThemeInputColor);
+    box-shadow: 0 0 5px rgba(0,0,0,0.1);
+}
+
+/* 다크모드 대응 */
+body.dark .greeting-title-input {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid #555;
+    color: #eee;
+}
+
+/* 설정창 리스트 스타일 */
+.greetingtitles-settings .scrollable-list {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+    background: #f7f7f7;
+    border-radius: 8px;
+}
+.title-list-item {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 8px;
+    margin-bottom: 6px;
+    border-radius: 4px;
+}
+
+.title-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+.delete-btn {
+    background: #e85a5a;       
+    color: #fff !important;    
+    border: none;
+    padding: 6px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-flex;      
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.delete-btn:hover {
+    background: #d74949;
+    transform: translateY(-1px);
+}
+
+.delete-btn:active {
+    transform: translateY(0);
+    opacity: 0.9;
+}

@@ -1,4 +1,4 @@
-/* #refresh_titles_list_btn 스타일 (설정창용) */
+
 #refresh_titles_list_btn {
     border-radius: 12px !important;
     padding: 8px 18px;
@@ -123,4 +123,35 @@ body.dark .greeting-title-input {
 .delete-btn:active {
     transform: translateY(0);
     opacity: 0.9;
+}
+
+.migrate-btn {
+    background: #00b894;       
+    color: #fff !important;    
+    border: none;
+    padding: 6px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-flex;      
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    margin-right: 5px; /* 삭제 버튼과의 간격 */
+}
+
+.migrate-btn:hover {
+    background: #00a182;
+    transform: translateY(-1px);
+}
+
+.migrate-btn:active {
+    transform: translateY(0);
+    opacity: 0.9;
+}
+
+button.migrate-btn i.fa-solid,
+button.delete-btn i.fa-solid {
+    color:#fff !important;
 }

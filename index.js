@@ -21,9 +21,13 @@ const DEFAULT_SETTINGS = {
 // =================================================================================
 
 function getCurrentCharKey() {
-    if (!this_chid || !characters[this_chid]) return null;
-    // [변경점] ID 대신 캐릭터의 '이름'을 고유 키로 사용합니다.
-    return characters[this_chid].name;
+    if (this_chid === undefined || this_chid === null || this_chid === -1) return null;
+    const char = characters[this_chid];
+    if (!char) return null;
+    
+    // [개편] 아바타 파일명을 고유 ID로 사용 (없으면 이름 사용)
+    // Popupmemo의 getCharacterKey 로직과 동일하게 변경하여 안정성을 높입니다.
+    return char.avatar || char.name;
 }
 
 // =================================================================================
@@ -38,7 +42,7 @@ function injectTitleInputs($context) {
 
     if ($greetings.length === 0) return;
 
-    // 현재 캐릭터의 이름(Key)을 가져옵니다.
+    // 현재 캐릭터의 고유 키(Avatar 파일명)를 가져옵니다.
     const charKey = getCurrentCharKey();
     if (!charKey) return;
 
@@ -51,23 +55,26 @@ function injectTitleInputs($context) {
         const settings = extension_settings[extensionName];
         let savedTitle = "";
         
-        // 이름으로 저장된 데이터를 우선 찾고, 없으면 혹시 모를 ID 데이터도 체크(호환성)
-        if (settings && settings.charData) {
-            if (settings.charData[charKey] && settings.charData[charKey][index]) {
+        // 데이터 구조 보장 및 로드
+        if (settings && settings.charData && settings.charData[charKey]) {
+            if (settings.charData[charKey][index]) {
                 savedTitle = settings.charData[charKey][index];
             }
         }
 
-        const $input = $('<input>', {
+		const $input = $('<input>', {
             type: 'text',
             class: 'greeting-title-input',
             placeholder: '제목/메모',
-            'data-char-key': charKey, // [변경점] ID 대신 이름을 저장
+            'data-char-key': charKey, 
             'data-index': index
         });
 
         $input.val(savedTitle);
-        $input.on('click keydown keyup', (e) => e.stopPropagation());
+
+        $input.on('click mousedown keydown keyup keypress', (e) => {
+            e.stopPropagation(); 
+        });
 
         const $targetContainer = $el.find('summary .title_restorable .flex-container.alignItemsCenter');
         
@@ -84,7 +91,6 @@ function injectTitleInputs($context) {
 
 $(document).on('input', '.greeting-title-input', function() {
     const $this = $(this);
-    // [변경점] 태그에 저장해둔 이름(Key)을 가져옵니다.
     const charKey = $this.attr('data-char-key');
     const index = $this.attr('data-index');
     const value = $this.val();
@@ -96,6 +102,8 @@ $(document).on('input', '.greeting-title-input', function() {
         settings = DEFAULT_SETTINGS;
         extension_settings[extensionName] = settings;
     }
+    
+    // Popupmemo 스타일의 안전한 데이터 구조 생성
     if (!settings.charData) settings.charData = {};
     if (!settings.charData[charKey]) settings.charData[charKey] = {};
 
@@ -103,7 +111,6 @@ $(document).on('input', '.greeting-title-input', function() {
         settings.charData[charKey][index] = value;
     } else {
         delete settings.charData[charKey][index];
-        // 데이터가 비었으면 키 자체를 삭제
         if (Object.keys(settings.charData[charKey]).length === 0) {
             delete settings.charData[charKey];
         }
@@ -227,17 +234,11 @@ function renderSettingsList() {
         return;
     }
 
-    // [변경점] charIdOrName: 이제 ID가 아니라 이름일 수도 있고, 옛날 ID일 수도 있습니다.
-    Object.entries(settings.charData).forEach(([charIdOrName, titles]) => {
-        // 화면 표시용 이름 결정 로직
-        let displayName = charIdOrName;
-        let isOldId = false;
-
-        // 만약 키가 현재 로드된 캐릭터 목록의 ID와 일치한다면 -> 옛날 방식으로 저장된 데이터임
-        if (characters[charIdOrName]) {
-            displayName = `${characters[charIdOrName].name} (ID: ${charIdOrName})`;
-            isOldId = true;
-        } 
+    // [개편] 저장된 각 항목을 돌면서 실제 캐릭터 정보를 찾습니다.
+    Object.entries(settings.charData).forEach(([charKey, titles]) => {
+        // Popupmemo 스타일의 이름 결정 로직
+        const charCard = characters.find(c => c.avatar === charKey || c.name === charKey);
+        const displayName = charCard ? charCard.name : `(미설치/삭제됨: ${charKey})`;
         
         let titlesHtml = '';
         const sortedIndexes = Object.keys(titles).sort((a, b) => parseInt(a) - parseInt(b));
@@ -245,21 +246,21 @@ function renderSettingsList() {
         sortedIndexes.forEach((idx) => {
             const txt = titles[idx];
             titlesHtml += `
-                <div style="display:flex; justify-content:space-between; margin-top:4px; padding:4px; background:#eee; border-radius:4px; font-size:0.85rem;">
+                <div style="display:flex; justify-content:space-between; margin-top:4px; padding:4px; background:rgba(0,0,0,0.05); border-radius:4px; font-size:0.85rem;">
                     <span>#${parseInt(idx) + 1}: <b>${txt}</b></span>
                 </div>`;
         });
 
         const html = `
-            <div class="title-list-item">
-                <div class="title-header">
-                    <strong style="font-size: 1.1em; color: #444;">${displayName}</strong>
+            <div class="title-list-item" style="border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 10px;">
+                <div class="title-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                    <strong style="font-size: 1.1em; color: var(--mainColor);">${displayName}</strong>
                     <div style="display:flex; gap:5px;">
-                        <button class="migrate-btn" data-key="${charIdOrName}" title="이 데이터를 현재 캐릭터 이름으로 가져옵니다">
-                            <i class="fa-solid fa-file-import" style="margin-right:4px;"></i>이동
+                        <button class="migrate-btn" data-key="${charKey}" title="이 데이터를 현재 캐릭터로 가져오기">
+                            <i class="fa-solid fa-file-import"></i> 이동
                         </button>
-                        <button class="delete-btn red_button" data-key="${charIdOrName}" title="삭제">
-                            <i class="fa-solid fa-trash" style="margin-right:4px;"></i>삭제
+                        <button class="delete-btn red_button" data-key="${charKey}" title="삭제">
+                            <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
                 </div>
@@ -271,27 +272,26 @@ function renderSettingsList() {
 
     // [이벤트] 데이터 이동 (Migrate)
     $('.migrate-btn').off('click').on('click', function() {
-        const oldKey = $(this).data('key'); // 복사할 원본 키 (ID 또는 다른 이름)
-        const currentName = getCurrentCharKey(); // 현재 캐릭터의 이름 (타겟)
+        const oldKey = $(this).data('key'); 
+        const currentKey = getCurrentCharKey(); 
         
-        if (!currentName) {
+        if (!currentKey) {
             toastr.warning('데이터를 이동할 대상(현재 캐릭터)이 선택되지 않았습니다.');
             return;
         }
 
-        if (oldKey === currentName) {
-            toastr.info('이미 현재 선택된 캐릭터(이름 기준)의 데이터입니다.');
+        if (oldKey === currentKey) {
+            toastr.info('이미 현재 선택된 캐릭터의 데이터입니다.');
             return;
         }
 
-        const msg = `선택한 데이터를 현재 캐릭터 이름('${currentName}')으로 이동하시겠습니까?\n\n기존 ID방식 데이터라면 이름 방식 데이터로 변환됩니다.`;
+        const msg = `선택한 데이터를 현재 활성화된 캐릭터로 이동하시겠습니까?\n\n주의: 기존 데이터는 삭제되고 현재 캐릭터의 데이터로 덮어씌워집니다.`;
 
         if (confirm(msg)) {
             const settings = extension_settings[extensionName];
             if (settings.charData[oldKey]) {
-                // 데이터 복사 (이름 키로 저장)
-                settings.charData[currentName] = JSON.parse(JSON.stringify(settings.charData[oldKey]));
-                
+                // 데이터 복사
+                settings.charData[currentKey] = JSON.parse(JSON.stringify(settings.charData[oldKey]));
                 // 원본 삭제
                 delete settings.charData[oldKey];
                 
@@ -303,7 +303,7 @@ function renderSettingsList() {
                 $('.greeting-title-input-injected').removeClass('greeting-title-input-injected');
                 injectTitleInputs($('body'));
 
-                toastr.success(`데이터가 '${currentName}'(으)로 이동되었습니다.`);
+                toastr.success(`데이터가 이동되었습니다.`);
             }
         }
     });
@@ -311,15 +311,14 @@ function renderSettingsList() {
     // [이벤트] 삭제
     $('.delete-btn').off('click').on('click', function() {
         const key = $(this).data('key');
-        if (confirm('이 데이터(메모)를 영구적으로 삭제하시겠습니까?')) {
+        if (confirm('이 캐릭터의 모든 메모를 삭제하시겠습니까?')) {
             if (extension_settings[extensionName].charData[key]) {
                 delete extension_settings[extensionName].charData[key];
                 saveSettingsDebounced();
                 renderSettingsList();
                 
-                // 만약 현재 보고 있는 캐릭터의 데이터였다면 입력창도 비움
-                const currentName = getCurrentCharKey();
-                if (key === currentName) {
+                const currentKey = getCurrentCharKey();
+                if (key === currentKey) {
                      $(`.greeting-title-input`).val('');
                 }
             }
@@ -328,7 +327,61 @@ function renderSettingsList() {
 }
 
 // =================================================================================
-// 6. 초기화
+// 6. 메인 채팅창 스와이프 시 제목 표시 로직
+// =================================================================================
+
+$(document).on('click', '.swipe_left, .swipe_right', function() {
+    const $mes = $(this).closest('.mes');
+    const $idDisplay = $mes.find('.mesIDDisplay');
+    
+    if ($idDisplay.length === 0 || $idDisplay.text().trim() !== '#0') return;
+
+    const $counter = $mes.find('.swipes-counter');
+    if ($counter.length === 0) return;
+
+    const observer = new MutationObserver((mutations) => {
+        const counterText = $counter.text().trim();
+        if (!counterText) return;
+
+        const parts = counterText.split('/');
+        if (parts.length < 2) return;
+
+        const currentIndex = parseInt(parts[0].trim()) - 1;
+        if (isNaN(currentIndex) || currentIndex < 0) return;
+
+        // [개편] 새로운 고유 키 방식 적용
+        const charKey = getCurrentCharKey();
+        if (!charKey) return;
+
+        const settings = extension_settings[extensionName];
+        
+        observer.disconnect();
+
+        if (settings && settings.charData && settings.charData[charKey]) {
+            const savedTitle = settings.charData[charKey][currentIndex];
+
+            if (savedTitle) {
+                toastr.info(savedTitle, '', {
+                    timeOut: 3000,
+                    extendedTimeOut: 1000,
+                    hideDuration: 1500,
+                    showDuration: 300,
+                    showMethod: 'fadeIn',
+                    hideMethod: 'fadeOut',
+                    preventDuplicates: true,
+                    positionClass: 'toast-top-center',
+                    closeButton: false
+                });
+            }
+        }
+    });
+
+    observer.observe($counter[0], { childList: true, characterData: true, subtree: true });
+    setTimeout(() => observer.disconnect(), 1000);
+});
+
+// =================================================================================
+// 7. 초기화
 // =================================================================================
 
 (async function() {

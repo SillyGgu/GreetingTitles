@@ -1,56 +1,119 @@
 
-#refresh_titles_list_btn {
-    border-radius: 12px !important;
-    padding: 8px 18px;
-    font-size: 0.9rem;
-    font-weight: 600;
+.greetingtitles-settings .inline-drawer-content {
+    /* 아주 연한 민트/그레이 톤 배경으로 분리감 형성 */
+    background-color: var(--SmartThemeDetailsBackgroundColor, rgba(235, 245, 240, 0.3));
+    padding: 20px 15px;
+    border-radius: 0 0 16px 16px; /* 하단 둥글게 */
+    border-top: 1px solid rgba(0,0,0,0.05);
+}
 
-    background: linear-gradient(135deg, #6db6ff, #2f7be9) !important;
-    color: #fff !important;
-    border: none !important;
+.greetingtitles-settings .menu-section {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
 
-    display: inline-flex !important;
+.greetingtitles-settings .section-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 5px;
+    padding-left: 8px;
+    /* 파스텔 그린 포인트 라인 */
+    border-left: 4px solid #57b894; 
+}
+
+.greetingtitles-settings .sub-title {
+    display: block;
+    font-size: 0.8rem; /* 크기 축소 */
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.7; /* 시각적 무게감 줄임 */
+}
+
+.greetingtitles-settings .memo-hint {
+    font-size: 0.8rem;
+    margin: 0;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.5;
+    line-height: 1.4;
+}
+
+/* --- 리스트 컨테이너 --- */
+.greetingtitles-settings .scrollable-list {
+    max-height: 350px;
+    overflow-y: auto;
+    padding: 4px 8px; /* 카드 그림자 여유 공간 */
+    margin: 0 -8px;
+    background: transparent;
+}
+
+.greetingtitles-settings .scrollable-list::-webkit-scrollbar {
+    width: 6px;
+}
+.greetingtitles-settings .scrollable-list::-webkit-scrollbar-thumb {
+    background-color: rgba(87, 184, 148, 0.3);
+    border-radius: 10px;
+}
+.greetingtitles-settings .scrollable-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* --- 리스트 아이템 (Card UI) --- */
+.title-list-item {
+    background: var(--SmartThemebg, #ffffff);
+    border: 1px solid transparent; 
+    border-radius: 16px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+    
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    
+    /* 부드러운 그림자 */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* 다크모드 대응 */
+body.dark .title-list-item {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: none;
+}
+
+.title-list-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(87, 184, 148, 0.15); /* 초록빛 그림자 */
+    border-color: rgba(87, 184, 148, 0.3);
+}
+
+.title-header {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    width: auto !important;
-
-    transition: all 0.2s ease;
-    pointer-events: auto !important;
-    opacity: 1 !important;
+    border-bottom: 1px dashed rgba(0,0,0,0.1); /* 점선으로 가볍게 */
+    padding-bottom: 8px;
+    margin-bottom: 0;
 }
 
-#refresh_titles_list_btn:hover {
-    background: linear-gradient(135deg, #4c9dff, #1f6ad1);
-    transform: translateY(-1px);
+.title-header strong {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #428f73; /* 짙은 파스텔 그린 텍스트 */
+}
+body.dark .title-header strong {
+    color: #76dcb5; /* 다크모드에선 밝은 민트 */
 }
 
-#refresh_titles_list_btn:active {
-    transform: translateY(0);
-    opacity: 0.92;
-}
-
-/* 버튼 공통 스타일 보정 */
-#refresh_titles_list_btn,
-button#refresh_titles_list_btn,
-#refresh_titles_list_btn.menu_button,
-#refresh_titles_list_btn.blue_button {
-    background: #4a90e2 !important;
-    color: #ffffff !important;
-    border: none !important;
-    padding: 8px 16px !important;
-    border-radius: 12px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
-    cursor: pointer !important;
-}
-
-/* 입력창 스타일 */
+/* --- 입력창 디자인 --- */
 .greeting-title-input {
-    background-color: rgba(0, 0, 0, 0.05);
-    border: 1px solid #ccc; 
-    border-radius: 5px;
+    background-color: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 10px;
     padding: 4px 8px;
     margin-left: 10px; 
     font-size: 0.9em;
@@ -60,98 +123,147 @@ button#refresh_titles_list_btn,
     transition: all 0.2s ease;
 }
 
-/* 포커스 시 강조 */
 .greeting-title-input:focus {
-    width: 250px; 
     background-color: var(--SmartThemeInputBackground);
-    border-color: var(--SmartThemeInputColor);
-    box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    border-color: #57b894;
+    box-shadow: 0 0 0 3px rgba(87, 184, 148, 0.15);
+    outline: none;
 }
 
-/* 다크모드 대응 */
-body.dark .greeting-title-input {
-    background-color: rgba(255, 255, 255, 0.1);
-    border: 1px solid #555;
-    color: #eee;
-}
-
-/* 설정창 리스트 스타일 */
-.greetingtitles-settings .scrollable-list {
-    max-height: 300px;
-    overflow-y: auto;
-    padding: 10px;
-    background: #f7f7f7;
-    border-radius: 8px;
-}
-.title-list-item {
-    background: #fff;
-    border: 1px solid #ddd;
-    padding: 8px;
-    margin-bottom: 6px;
-    border-radius: 4px;
-}
-
-.title-header {
+/* --- 액션 버튼 그룹 (삭제/이동) --- */
+.title-list-item .actions {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 5px;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 2px;
 }
 
-.delete-btn {
-    background: #e85a5a;       
-    color: #fff !important;    
+.migrate-btn, .delete-btn {
     border: none;
-    padding: 6px 12px;
     border-radius: 10px;
-    cursor: pointer;
+    padding: 6px 14px;
     font-size: 0.8rem;
     font-weight: 600;
-    display: inline-flex;      
+    cursor: pointer;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     transition: all 0.2s ease;
+    height: 32px;
 }
 
-.delete-btn:hover {
-    background: #d74949;
-    transform: translateY(-1px);
-}
-
-.delete-btn:active {
-    transform: translateY(0);
-    opacity: 0.9;
-}
-
+/* 이동 버튼 - 파스텔 블루/그린 믹스 */
 .migrate-btn {
-    background: #00b894;       
-    color: #fff !important;    
-    border: none;
-    padding: 6px 12px;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 600;
-    display: inline-flex;      
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    margin-right: 5px; /* 삭제 버튼과의 간격 */
+    background-color: rgba(87, 184, 148, 0.12);
+    color: #3aa675 !important;
 }
-
 .migrate-btn:hover {
-    background: #00a182;
+    background-color: #57b894;
+    color: white !important;
     transform: translateY(-1px);
 }
 
-.migrate-btn:active {
-    transform: translateY(0);
-    opacity: 0.9;
+/* 삭제 버튼 - 파스텔 레드 (Salmon) */
+.delete-btn {
+    background-color: rgba(255, 107, 107, 0.1);
+    color: #ff6b6b !important;
+}
+.delete-btn:hover {
+    background-color: #ff6b6b;
+    color: white !important;
+    transform: translateY(-1px);
 }
 
-button.migrate-btn i.fa-solid,
-button.delete-btn i.fa-solid {
-    color:#fff !important;
+/* 아이콘 색상 상속 강제 */
+.migrate-btn i, .delete-btn i { color: inherit !important; }
+
+
+/* --- 새로고침 버튼 (하단 메인 버튼) --- */
+.greetingtitles-settings .button-row {
+    margin-top: 10px;
+}
+
+#refresh_titles_list_btn {
+    width: 100%;
+    /* 파스텔 그린 그라디언트 */
+    background: linear-gradient(135deg, #57b894, #3aa675);
+    color: white;
+    border: none;
+    padding: 12px 0;
+    border-radius: 14px; /* 더 둥글게 */
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(58, 166, 117, 0.25);
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+#refresh_titles_list_btn:hover {
+    background: linear-gradient(135deg, #66c7a3, #45b383);
+    box-shadow: 0 6px 16px rgba(58, 166, 117, 0.35);
+    transform: translateY(-2px);
+}
+
+#refresh_titles_list_btn:active {
+    transform: scale(0.98);
+}
+
+.greetingtitles-settings #refresh_titles_list_btn.menu_button {
+    /* 배경 강제 */
+    background: linear-gradient(135deg, #57b894, #3aa675) !important;
+
+    /* radius 강제 */
+    border-radius: 16px !important;
+
+    /* 기존 버튼 초기화 */
+    border: none !important;
+    box-shadow: 0 6px 16px rgba(58, 166, 117, 0.28) !important;
+
+    width: 100% !important;
+    height: 46px;
+
+    color: #ffffff !important;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    cursor: pointer;
+    transition:
+        transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1),
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+/* 아이콘 색상 */
+.greetingtitles-settings #refresh_titles_list_btn.menu_button i {
+    color: inherit !important;
+}
+
+/* Hover */
+.greetingtitles-settings #refresh_titles_list_btn.menu_button:hover {
+    background: linear-gradient(135deg, #66c7a3, #45b383) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(58, 166, 117, 0.38) !important;
+}
+
+/* Active */
+.greetingtitles-settings #refresh_titles_list_btn.menu_button:active {
+    transform: scale(0.97);
+}
+
+/* 다크모드 */
+body.dark .greetingtitles-settings #refresh_titles_list_btn.menu_button {
+    box-shadow: 0 6px 18px rgba(118, 220, 181, 0.25) !important;
 }

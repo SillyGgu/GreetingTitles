@@ -1,11 +1,11 @@
 {
-    "display_name": "Greeting Titles (그리팅 제목 메모)",
+    "display_name": "그리팅 메모",
     "loading_order": 210,
     "requires": [],
     "optional": [],
     "js": "index.js",
     "css": "style.css",
     "settings": "settings.html",
-    "author": "User",
-    "version": "1.0.0"
+    "author": "SillyGgu",
+    "version": "1.1.0"
 }

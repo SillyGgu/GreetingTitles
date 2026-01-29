@@ -1,6 +1,5 @@
 <div class="extension-block greetingtitles-settings">
     <div class="inline-drawer">
-        <!-- 토글 제목: 기존 텍스트 유지 (가장 큰 위계) -->
         <div class="inline-drawer-toggle inline-drawer-header">
             <b>그리팅 제목 데이터 관리</b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
@@ -8,34 +7,38 @@
         
         <div class="inline-drawer-content">
             <div class="menu-section">
-                <!-- 내부 섹션 헤더: 시각적으로 토글보다 작고 깔끔하게 -->
                 <div class="section-header">
                     <span class="sub-title">저장된 데이터 목록</span>
                     <p class="memo-hint">캐릭터별로 저장된 제목을 확인하고 관리합니다.</p>
                 </div>
                 
-                <!-- 리스트 컨테이너 -->
-                <div id="greeting_titles_list_container" class="scrollable-list custom-scroll">
-                    <!-- JS로 생성될 아이템 예시 (디자인 확인용 주석)
-                    <div class="title-list-item">
-                        <div class="title-header">
-                            <strong>캐릭터 이름</strong>
-                        </div>
-                        <input type="text" class="greeting-title-input" value="그리팅 제목 예시" readonly>
-                        <div class="actions">
-                            <button class="migrate-btn"><i class="fa-solid fa-file-export"></i> 이동</button>
-                            <button class="delete-btn"><i class="fa-solid fa-trash"></i> 삭제</button>
-                        </div>
+                <!-- 검색창 -->
+                <div class="search-bar-wrapper" style="margin: 5px 8px 12px 8px;">
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; opacity: 0.5; color: var(--SmartThemeBodyColor); pointer-events: none;"></i>
+                        <input type="text" id="gt_search_input" placeholder="캐릭터 이름 또는 메모 검색..." 
+                            style="width: 100%; padding: 8px 12px 8px 35px; border-radius: 10px; border: 1px solid rgba(87, 184, 148, 0.2); background: rgba(0,0,0,0.03); color: var(--SmartThemeBodyColor); font-size: 0.85rem; outline: none; transition: all 0.2s;">
                     </div>
-                    -->
+                </div>
+
+                <div id="greeting_titles_list_container" class="scrollable-list custom-scroll">
+                    <!-- JS로 생성됨 -->
                 </div>
                 
-                <!-- 하단 액션 버튼 -->
-                <div class="button-row">
+                <div class="button-row" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px;">
                     <button id="refresh_titles_list_btn" class="menu_button">
                         <i class="fa-solid fa-rotate-right"></i>
-                        목록 새로고침
+                        새로고침
                     </button>
+                    <button id="backup_all_titles_btn" class="menu_button" title="모든 데이터 백업(JSON)">
+                        <i class="fa-solid fa-download"></i>
+                        전체 백업
+                    </button>
+                    <button id="import_titles_btn" class="menu_button" title="JSON 파일 가져오기">
+                        <i class="fa-solid fa-upload"></i>
+                        가져오기
+                    </button>
+                    <input type="file" id="import_titles_file" accept=".json" style="display: none;" />
                 </div>
             </div>
         </div>

@@ -193,31 +193,19 @@ function createCustomPopup() {
         settings.popupState = DEFAULT_SETTINGS.popupState;
     }
 
-    const isMobile = $(window).width() <= 768;
-
-    if (isMobile) {
+    // 초기 위치 설정 (모바일/PC 구분)
+    if ($(window).width() <= 768) {
         const $chat = $('#chat');
         if ($chat.length > 0) {
             const rect = $chat[0].getBoundingClientRect();
-            
-            const targetWidth = rect.width * 0.95;
-            
-            const targetHeight = Math.min(rect.height * 0.5, 400);
-            
-            const targetLeft = rect.left + (rect.width - targetWidth) / 2;
-            
-            const targetTop = rect.top + 50;
-
             $popup.css({
                 'position': 'fixed',
-                'top': targetTop + 'px',
-                'left': targetLeft + 'px',
-                'width': targetWidth + 'px',
-                'height': targetHeight + 'px',
-                'transform': 'none',   
-                'margin': '0',
-                'min-width': 'unset',
-                'max-width': 'unset'
+                'top': (rect.top + 20) + 'px',
+                'left': (rect.left + (rect.width * 0.05)) + 'px',
+                'width': (rect.width * 0.9) + 'px',
+                'height': (rect.height * 0.7) + 'px',
+                'transform': 'none',
+                'margin': '0'
             });
         }
     } else {
@@ -321,6 +309,28 @@ function openGreetingSelectPopup() {
         return;
     }
 
+    const $popup = $('#greeting-titles-custom-popup');
+
+    // 모바일 환경일 경우 열 때마다 chat 영역 기준으로 위치 재계산
+    if ($(window).width() <= 768) {
+        const $chat = $('#chat');
+        if ($chat.length > 0) {
+            const rect = $chat[0].getBoundingClientRect();
+            // 화면 중앙 및 chat 영역 너비에 맞게 조정
+            const targetWidth = rect.width * 0.9;
+            const targetHeight = Math.min(rect.height * 0.8, 500);
+            const targetLeft = rect.left + (rect.width - targetWidth) / 2;
+            const targetTop = rect.top + (rect.height * 0.1);
+
+            $popup.css({
+                'top': targetTop + 'px',
+                'left': targetLeft + 'px',
+                'width': targetWidth + 'px',
+                'height': targetHeight + 'px'
+            });
+        }
+    }
+
     const settings = extension_settings[extensionName];
     const storedData = (settings && settings.charData && settings.charData[charKey]) ? settings.charData[charKey] : {};
     const char = characters[this_chid];
@@ -346,7 +356,7 @@ function openGreetingSelectPopup() {
             </div>
         `);
 
-		$item.on('click', function() {
+        $item.on('click', function() {
             const targetIdx = $(this).data('index'); 
             const hasMainGreeting = char.data && char.data.first_mes && char.data.first_mes.trim() !== '';
             const commandIdx = hasMainGreeting ? targetIdx + 1 : targetIdx;
@@ -391,9 +401,7 @@ function openGreetingSelectPopup() {
                 }, 100);
 
                 setTimeout(() => {
-
                     $('#stc_typing_indicator').remove();
-
                     $(`#${hideStyleId}`).remove();
                 }, 800);
 
@@ -405,7 +413,7 @@ function openGreetingSelectPopup() {
         $listArea.append($item);
     });
 
-    $('#greeting-titles-custom-popup').fadeIn(200);
+    $popup.fadeIn(200);
 }
 
 // =================================================================================

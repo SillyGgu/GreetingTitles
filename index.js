@@ -707,7 +707,6 @@ function renderSettingsList() {
     const $container = $('#greeting_titles_list_container');
     if ($container.length === 0) return;
 
-    // [추가] 검색어 가져오기
     const searchTerm = $('#gt_search_input').val()?.toLowerCase() || '';
 
     $container.empty();
@@ -724,12 +723,10 @@ function renderSettingsList() {
         const charCard = characters.find(c => c.avatar === charKey || c.name === charKey);
         const displayName = charCard ? charCard.name : `(미설치/삭제됨: ${charKey})`;
         
-        // [추가] 검색 필터링 로직
         const lowerName = displayName.toLowerCase();
         const matchesName = lowerName.includes(searchTerm);
         const matchesTitles = Object.values(titles).some(t => String(t).toLowerCase().includes(searchTerm));
 
-        // 검색어가 입력된 경우, 이름이나 메모에 포함되지 않으면 해당 캐릭터 카드는 건너뜀
         if (searchTerm && !matchesName && !matchesTitles) return;
 
         hasVisibleItems = true;
@@ -766,12 +763,10 @@ function renderSettingsList() {
         $container.append(html);
     });
 
-    // [추가] 검색 결과가 없을 때의 피드백
     if (!hasVisibleItems && searchTerm) {
         $container.append('<div style="padding:20px; text-align:center; color:#777; font-size:0.9rem;">검색 결과가 없습니다.</div>');
     }
 
-    // 개별 백업 버튼 이벤트
     $('.backup-single-btn').off('click').on('click', function() {
         const key = $(this).data('key');
         const settings = extension_settings[extensionName];
@@ -838,15 +833,12 @@ function renderSettingsList() {
         const settingsHtml = await $.get(`${extensionFolderPath}/settings.html`);
         $("#extensions_settings").append(settingsHtml);
         
-        // 새로고침 버튼
         $('#refresh_titles_list_btn').on('click', renderSettingsList);
 
-        // [추가된 기능] 검색창 입력 시 즉시 리스트 필터링
         $(document).on('input', '#gt_search_input', function() {
             renderSettingsList();
         });
 
-        // 전체 백업 버튼
         $('#backup_all_titles_btn').on('click', function() {
             const settings = extension_settings[extensionName];
             if (!settings || !settings.charData) {
@@ -856,12 +848,10 @@ function renderSettingsList() {
             downloadAsJson(settings.charData, `GreetingTitles_All_Backup_${new Date().toISOString().slice(0,10)}`);
         });
 
-        // 가져오기 버튼 (파일 선택창 열기)
         $('#import_titles_btn').on('click', function() {
             $('#import_titles_file').click();
         });
 
-        // 파일 선택 시 처리 (원본 로직 완벽 복구)
         $('#import_titles_file').on('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -897,7 +887,6 @@ function renderSettingsList() {
                     saveSettingsDebounced();
                     renderSettingsList();
                     
-                    // 현재 열려있는 채팅창에 즉시 반영 (원본에 있던 코드)
                     $('.greeting-title-input').remove(); 
                     $('.greeting-title-input-injected').removeClass('greeting-title-input-injected');
                     injectTitleInputs($('body'));

@@ -175,7 +175,10 @@ function createCustomPopup() {
         <div id="greeting-titles-custom-popup">
             <div class="gt-popup-header">
                 <span class="gt-popup-title"><i class="fa-solid fa-book-open"></i> 저장된 그리팅 목록</span>
-                <button class="gt-popup-close"><i class="fa-solid fa-xmark"></i></button>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <button class="gt-popup-edit" title="이 그리팅 제목 편집 (alt 그리팅 창에서 수정)"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="gt-popup-close"><i class="fa-solid fa-xmark"></i></button>
+                </div>
             </div>
             <div class="gt-popup-content" id="gt-popup-list-area">
                 <!-- 리스트가 여기에 들어갑니다 -->
@@ -221,6 +224,64 @@ function createCustomPopup() {
 
     $('.gt-popup-close').on('click', function() {
         $popup.fadeOut(200);
+    });
+
+    $(document).off('click.gt-edit').on('click.gt-edit', '.gt-popup-edit', function() {
+        const $popup = $('#greeting-titles-custom-popup');
+        const isEditMode = $popup.data('edit-mode') || false;
+
+        if (!isEditMode) {
+            // ── 편집 모드 진입 ──
+            $popup.data('edit-mode', true);
+            $(this).html('<i class="fa-solid fa-check"></i>').attr('title', '완료 (저장)').css({ color: '#57b894', opacity: '1' });
+            renderPopupList(true);
+
+        } else {
+            // ── 편집 모드 완료 → 저장 ──
+            const charKey = getCurrentCharKey();
+            if (!charKey) return;
+
+            const settings = extension_settings[extensionName];
+            if (!settings.charData) settings.charData = {};
+            if (!settings.charData[charKey]) settings.charData[charKey] = {};
+
+            // 모든 input값 수집해서 저장
+            $('#gt-popup-list-area .gt-title-edit-input').each(function() {
+                const idx = $(this).data('index');
+                const val = $(this).val().trim();
+                if (val !== '') {
+                    settings.charData[charKey][idx] = val;
+                } else {
+                    delete settings.charData[charKey][idx];
+                }
+            });
+
+            // charData 정리 (빈 캐릭터 데이터 제거)
+            if (Object.keys(settings.charData[charKey]).length === 0) {
+                delete settings.charData[charKey];
+            }
+
+            saveSettingsDebounced();
+
+            // alt greeting 창이 열려있으면 title input도 동기화
+            const updatedData = settings.charData && settings.charData[charKey] ? settings.charData[charKey] : {};
+            $(`.alternate_greeting[data-index]`).each(function() {
+                const idx = $(this).attr('data-index');
+                const $input = $(this).find('.greeting-title-input');
+                if ($input.length) {
+                    $input.val(updatedData[idx] || '');
+                }
+            });
+
+            $popup.data('edit-mode', false);
+            $(this).html('<i class="fa-solid fa-pen-to-square"></i>').attr('title', '타이틀 편집 모드').css({ color: '', opacity: '' });
+            renderPopupList(false);
+
+            // 설정창 목록도 갱신
+            renderSettingsList();
+
+            toastr.success('타이틀이 저장되었습니다!', '', { timeOut: 1500, positionClass: 'toast-top-center' });
+        }
     });
 
     const $header = $popup.find('.gt-popup-header');
@@ -300,12 +361,199 @@ function createCustomPopup() {
     });
 }
 
+function renderPopupList(isEditMode) {
+    const charKey = getCurrentCharKey();
+    if (!charKey) return;
+
+    const settings = extension_settings[extensionName];
+    const storedData = (settings && settings.charData && settings.charData[charKey]) ? settings.charData[charKey] : {};
+    const char = characters[this_chid];
+    const altGreetings = char.data && char.data.alternate_greetings ? char.data.alternate_greetings : [];
+
+    const $listArea = $('#gt-popup-list-area');
+    $listArea.empty();
+
+    // 편집 모드 안내 배너
+    if (isEditMode) {
+        $listArea.append(`
+            <div style="padding: 8px 16px; background: rgba(87,184,148,0.1); border-bottom: 1px solid rgba(87,184,148,0.2); font-size: 0.8rem; color: #57b894;">
+                <i class="fa-solid fa-pen-to-square"></i> 편집 모드 — 제목을 수정하고 ✓ 완료를 누르세요.
+            </div>
+        `);
+    }
+
+    altGreetings.forEach((content, idx) => {
+        const savedTitle = storedData[idx] && storedData[idx].trim() !== '' ? storedData[idx] : '';
+
+        if (isEditMode) {
+            // ── 편집 모드 아이템 ──
+            const $item = $(`
+                <div class="gt-list-item gt-edit-mode-item" data-index="${idx}" style="cursor: default; flex-wrap: nowrap; align-items: center; gap: 10px;">
+                    <div class="gt-item-idx">${idx + 1}</div>
+                    <input
+                        type="text"
+                        class="gt-title-edit-input"
+                        data-index="${idx}"
+                        placeholder="${content.substring(0, 40).replace(/"/g, '&quot;')}..."
+                        value="${savedTitle.replace(/"/g, '&quot;')}"
+                        style="flex-grow:1; min-width:0; padding: 5px 10px; border-radius: 8px;
+                               border: 1px solid rgba(87,184,148,0.4); background: rgba(87,184,148,0.05);
+                               color: var(--SmartThemeBodyColor); font-size: 0.9em; outline: none;
+                               transition: border-color 0.2s, box-shadow 0.2s;"
+                    />
+                    <button class="gt-copy-btn" data-index="${idx}" title="그리팅 텍스트 복사"
+                        style="background: none; border: none; cursor: pointer; opacity: 0.5;
+                               font-size: 0.9em; padding: 4px 7px; border-radius: 6px;
+                               color: var(--SmartThemeBodyColor); transition: all 0.2s; flex-shrink: 0;">
+                        <i class="fa-regular fa-copy"></i>
+                    </button>
+                </div>
+            `);
+
+            // input 포커스 스타일
+            $item.find('.gt-title-edit-input')
+                .on('focus', function() {
+                    $(this).css({ 'border-color': '#57b894', 'box-shadow': '0 0 0 3px rgba(87,184,148,0.15)' });
+                })
+                .on('blur', function() {
+                    $(this).css({ 'border-color': 'rgba(87,184,148,0.4)', 'box-shadow': 'none' });
+                })
+                .on('click mousedown keydown keyup keypress', function(e) {
+                    e.stopPropagation();
+                });
+
+            // 복사 버튼
+            $item.find('.gt-copy-btn').on('click', function(e) {
+                e.stopPropagation();
+                gtCopyGreeting(content, $(this));
+            }).on('mouseenter', function() {
+                $(this).css({ opacity: '1', background: 'rgba(87,184,148,0.12)' });
+            }).on('mouseleave', function() {
+                $(this).css({ opacity: '0.5', background: 'none' });
+            });
+
+            $listArea.append($item);
+
+        } else {
+            // ── 일반 모드 아이템 ──
+            const hasTitle = savedTitle !== '';
+            const displayTitle = hasTitle
+                ? `<b>${savedTitle}</b>`
+                : `<span style="opacity:0.8">${content.substring(0, 60)}...</span>`;
+
+            const $item = $(`
+                <div class="gt-list-item" data-index="${idx}">
+                    <div class="gt-item-idx">${idx + 1}</div>
+                    <div class="gt-item-text">${displayTitle}</div>
+                    <button class="gt-copy-btn" data-index="${idx}" title="그리팅 텍스트 복사"
+                        style="background: none; border: none; cursor: pointer; opacity: 0.5;
+                               font-size: 0.9em; padding: 4px 7px; border-radius: 6px;
+                               color: var(--SmartThemeBodyColor); transition: all 0.2s; flex-shrink: 0;">
+                        <i class="fa-regular fa-copy"></i>
+                    </button>
+                    <i class="fa-solid fa-chevron-right gt-item-arrow"></i>
+                </div>
+            `);
+
+            // 그리팅 이동 클릭
+            $item.on('click', function(e) {
+                if ($(e.target).closest('.gt-copy-btn').length) return;
+                const targetIdx = $(this).data('index');
+                const hasMainGreeting = char.data && char.data.first_mes && char.data.first_mes.trim() !== '';
+                const commandIdx = hasMainGreeting ? targetIdx + 1 : targetIdx;
+                const title = storedData[targetIdx] && storedData[targetIdx].trim() !== '' ? storedData[targetIdx] : null;
+
+                const $textarea = $('#send_textarea');
+                const $sendBtn = $('#send_but');
+
+                if ($textarea.length && $sendBtn.length) {
+                    const hideStyleId = 'stc-force-hide-indicator';
+                    if ($(`#${hideStyleId}`).length === 0) {
+                        $('<style>')
+                            .attr('id', hideStyleId)
+                            .text('#stc_typing_indicator { display: none !important; opacity: 0 !important; visibility: hidden !important; }')
+                            .appendTo('head');
+                    }
+
+                    if (title) {
+                        toastr.info(title, '', {
+                            timeOut: 2000,
+                            preventDuplicates: true,
+                            positionClass: 'toast-top-center',
+                        });
+                    }
+
+                    const originalValue = $textarea.val();
+                    $textarea.val(`/swipes-go ${commandIdx}`).trigger('input');
+                    $sendBtn.trigger('click');
+
+                    setTimeout(() => {
+                        if ($textarea.val().startsWith('/swipes-go')) {
+                            $textarea.val(originalValue).trigger('input');
+                        }
+                    }, 50);
+
+                    setTimeout(() => {
+                        if (eventSource && event_types) {
+                            eventSource.emit(event_types.GENERATION_ENDED);
+                        }
+                    }, 100);
+
+                    setTimeout(() => {
+                        $('#stc_typing_indicator').remove();
+                        $(`#${hideStyleId}`).remove();
+                    }, 800);
+
+                } else {
+                    console.error('[GreetingTitles] 입력창을 찾을 수 없습니다.');
+                }
+            });
+
+            // 복사 버튼
+            $item.find('.gt-copy-btn').on('click', function(e) {
+                e.stopPropagation();
+                gtCopyGreeting(content, $(this));
+            }).on('mouseenter', function() {
+                $(this).css({ opacity: '1', background: 'rgba(87,184,148,0.12)' });
+            }).on('mouseleave', function() {
+                $(this).css({ opacity: '0.5', background: 'none' });
+            });
+
+            $listArea.append($item);
+        }
+    });
+}
+
+// 복사 공통 함수
+function gtCopyGreeting(text, $btn) {
+    navigator.clipboard.writeText(text).then(() => {
+        const $icon = $btn.find('i');
+        $icon.removeClass('fa-regular fa-copy').addClass('fa-solid fa-check');
+        $btn.css({ opacity: '1', color: '#57b894' });
+        setTimeout(() => {
+            $icon.removeClass('fa-solid fa-check').addClass('fa-regular fa-copy');
+            $btn.css({ opacity: '0.5', color: '' });
+        }, 1500);
+        toastr.success('그리팅 텍스트가 복사되었습니다!', '', { timeOut: 1500, positionClass: 'toast-top-center' });
+    }).catch(() => {
+        toastr.error('복사에 실패했습니다.', '', { timeOut: 1500 });
+    });
+}
+
 function openGreetingSelectPopup() {
     createCustomPopup();
-    
+
     const charKey = getCurrentCharKey();
     if (!charKey) {
         toastr.warning('캐릭터 정보를 불러올 수 없습니다.');
+        return;
+    }
+
+    const char = characters[this_chid];
+    const altGreetings = char.data && char.data.alternate_greetings ? char.data.alternate_greetings : [];
+
+    if (altGreetings.length === 0) {
+        toastr.info('이 캐릭터에는 추가 그리팅이 없습니다.');
         return;
     }
 
@@ -316,7 +564,6 @@ function openGreetingSelectPopup() {
         const $chat = $('#chat');
         if ($chat.length > 0) {
             const rect = $chat[0].getBoundingClientRect();
-            // 화면 중앙 및 chat 영역 너비에 맞게 조정
             const targetWidth = rect.width * 0.9;
             const targetHeight = Math.min(rect.height * 0.8, 500);
             const targetLeft = rect.left + (rect.width - targetWidth) / 2;
@@ -331,88 +578,12 @@ function openGreetingSelectPopup() {
         }
     }
 
-    const settings = extension_settings[extensionName];
-    const storedData = (settings && settings.charData && settings.charData[charKey]) ? settings.charData[charKey] : {};
-    const char = characters[this_chid];
-    const altGreetings = char.data && char.data.alternate_greetings ? char.data.alternate_greetings : [];
+    // 팝업 열릴 때 항상 일반 모드로 시작
+    $popup.data('edit-mode', false);
+    const $editBtn = $popup.find('.gt-popup-edit');
+    $editBtn.html('<i class="fa-solid fa-pen-to-square"></i>').attr('title', '타이틀 편집 모드');
 
-    if (altGreetings.length === 0) {
-        toastr.info('이 캐릭터에는 추가 그리팅이 없습니다.');
-        return;
-    }
-
-    const $listArea = $('#gt-popup-list-area');
-    $listArea.empty();
-
-    altGreetings.forEach((content, idx) => {
-        const hasTitle = storedData[idx] && storedData[idx].trim() !== '';
-        const displayTitle = hasTitle ? `<b>${storedData[idx]}</b>` : `<span style="opacity:0.8">${content.substring(0, 60)}...</span>`;
-        
-        const $item = $(`
-            <div class="gt-list-item" data-index="${idx}">
-                <div class="gt-item-idx">${idx + 1}</div>
-                <div class="gt-item-text">${displayTitle}</div>
-                <i class="fa-solid fa-chevron-right gt-item-arrow"></i>
-            </div>
-        `);
-
-        $item.on('click', function() {
-            const targetIdx = $(this).data('index'); 
-            const hasMainGreeting = char.data && char.data.first_mes && char.data.first_mes.trim() !== '';
-            const commandIdx = hasMainGreeting ? targetIdx + 1 : targetIdx;
-            const savedTitle = (storedData[targetIdx] && storedData[targetIdx].trim() !== '') 
-                ? storedData[targetIdx] 
-                : null;
-
-            const $textarea = $('#send_textarea');
-            const $sendBtn = $('#send_but');
-
-            if ($textarea.length && $sendBtn.length) {
-                const hideStyleId = 'stc-force-hide-indicator';
-                if ($(`#${hideStyleId}`).length === 0) {
-                    $('<style>')
-                        .attr('id', hideStyleId)
-                        .text('#stc_typing_indicator { display: none !important; opacity: 0 !important; visibility: hidden !important; }')
-                        .appendTo('head');
-                }
-
-                if (savedTitle) {
-                    toastr.info(savedTitle, '', {
-                        timeOut: 2000,
-                        preventDuplicates: true,
-                        positionClass: 'toast-top-center',
-                    });
-                }
-
-                const originalValue = $textarea.val();
-                $textarea.val(`/swipes-go ${commandIdx}`).trigger('input');
-                $sendBtn.trigger('click');
-                
-                setTimeout(() => {
-                    if ($textarea.val().startsWith('/swipes-go')) {
-                        $textarea.val(originalValue).trigger('input');
-                    }
-                }, 50);
-
-                setTimeout(() => {
-                    if (eventSource && event_types) {
-                        eventSource.emit(event_types.GENERATION_ENDED);
-                    }
-                }, 100);
-
-                setTimeout(() => {
-                    $('#stc_typing_indicator').remove();
-                    $(`#${hideStyleId}`).remove();
-                }, 800);
-
-            } else {
-                console.error('[GreetingTitles] 입력창을 찾을 수 없습니다.');
-            }
-        });
-
-        $listArea.append($item);
-    });
-
+    renderPopupList(false);
     $popup.fadeIn(200);
 }
 
@@ -743,9 +914,15 @@ function renderSettingsList() {
         
         sortedIndexes.forEach((idx) => {
             const txt = titles[idx];
+            const char = characters.find(c => c.avatar === charKey || c.name === charKey);
+            const greetingContent = char && char.data && char.data.alternate_greetings 
+                ? (char.data.alternate_greetings[parseInt(idx)] || '') 
+                : '';
+            const hasContent = greetingContent.trim() !== '';
             titlesHtml += `
-                <div style="display:flex; justify-content:space-between; margin-top:4px; padding:4px; background:rgba(0,0,0,0.05); border-radius:4px; font-size:0.85rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding:4px 8px; background:rgba(0,0,0,0.05); border-radius:4px; font-size:0.85rem;">
                     <span>#${parseInt(idx) + 1}: <b>${txt}</b></span>
+                    ${hasContent ? `<button class="copy-greeting-btn" data-char-key="${charKey}" data-idx="${parseInt(idx)}" title="그리팅 전체 텍스트 복사"><i class="fa-regular fa-copy"></i> 복사</button>` : ''}
                 </div>`;
         });
 
@@ -774,6 +951,23 @@ function renderSettingsList() {
     if (!hasVisibleItems && searchTerm) {
         $container.append('<div style="padding:20px; text-align:center; color:#777; font-size:0.9rem;">검색 결과가 없습니다.</div>');
     }
+
+    $('.copy-greeting-btn').off('click').on('click', function() {
+        const key = $(this).data('char-key');
+        const idx = $(this).data('idx');
+        const char = characters.find(c => c.avatar === key || c.name === key);
+        if (!char || !char.data || !char.data.alternate_greetings) {
+            toastr.warning('캐릭터가 설치되어 있지 않아 그리팅 내용을 불러올 수 없습니다.', '', { timeOut: 2000 });
+            return;
+        }
+        const greetingText = char.data.alternate_greetings[idx] || '';
+        if (!greetingText) return;
+        navigator.clipboard.writeText(greetingText).then(() => {
+            toastr.success('그리팅 텍스트가 복사되었습니다!', '', { timeOut: 1500, positionClass: 'toast-top-center' });
+        }).catch(() => {
+            toastr.error('복사에 실패했습니다.', '', { timeOut: 1500 });
+        });
+    });
 
     $('.backup-single-btn').off('click').on('click', function() {
         const key = $(this).data('key');

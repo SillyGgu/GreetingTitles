@@ -301,3 +301,46 @@ body.dark .greetingtitles-settings .button-row .menu_button {
 body.dark #gt_search_input {
     background: rgba(255, 255, 255, 0.05);
 }
+/* 복사 버튼 */
+.copy-greeting-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+    height: 26px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    background-color: rgba(87, 184, 148, 0.12);
+    color: #3aa675 !important;
+    margin-left: 6px;
+}
+.copy-greeting-btn:hover {
+    background-color: #57b894;
+    color: white !important;
+    transform: translateY(-1px);
+}
+.copy-greeting-btn i { color: inherit !important; }
+
+/* 팝업 편집 버튼 */
+.gt-popup-edit {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1em;
+    color: var(--SmartThemeBodyColor, #333);
+    opacity: 0.6;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+.gt-popup-edit:hover {
+    opacity: 1;
+    background: rgba(87, 184, 148, 0.15);
+    color: #57b894;
+}

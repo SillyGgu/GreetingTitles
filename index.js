@@ -1,7 +1,10 @@
 import {
     saveSettingsDebounced,
+    saveSettings,
     characters,
     this_chid,
+    chat,
+    swipe,
     eventSource,
     event_types
 } from '../../../../script.js';
@@ -9,6 +12,8 @@ import {
 import {
     extension_settings
 } from '../../../extensions.js';
+import { SWIPE_DIRECTION, SWIPE_SOURCE } from '../../../constants.js';
+import { copyText } from '../../../utils.js';
 
 const extensionName = 'GreetingTitles';
 const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
@@ -135,12 +140,6 @@ function injectPopupStyles() {
             background: linear-gradient(135deg, transparent 50%, var(--SmartThemeQuoteColor, #57b894) 50%);
         }
 
-        body.gt-hide-typing-indicator #stc_typing_indicator {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-        }
     `;
     $('<style>').attr('id', styleId).text(css).appendTo('head');
 }
@@ -154,6 +153,26 @@ function getCurrentCharKey() {
     const char = characters[this_chid];
     if (!char) return null;
     return char.avatar || char.name;
+}
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+}
+
+function getSettings() {
+    return extension_settings[extensionName] ??= { charData: {}, popupState: { ...DEFAULT_SETTINGS.popupState } };
+}
+
+function saveTitle(charKey, index, value) {
+    if (!charKey || !/^\d+$/.test(String(index))) return;
+    const settings = getSettings();
+    settings.charData ??= {};
+    const titles = settings.charData[charKey] ??= {};
+    if (value.trim()) titles[index] = value;
+    else delete titles[index];
+    if (Object.keys(titles).length === 0) delete settings.charData[charKey];
+    saveSettingsDebounced();
 }
 function downloadAsJson(exportObj, exportName) {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
@@ -191,7 +210,7 @@ function createCustomPopup() {
     $('body').append(popupHtml);
     const $popup = $('#greeting-titles-custom-popup');
 
-    const settings = extension_settings[extensionName];
+    const settings = getSettings();
     if (!settings.popupState) {
         settings.popupState = DEFAULT_SETTINGS.popupState;
     }
@@ -226,7 +245,7 @@ function createCustomPopup() {
         $popup.fadeOut(200);
     });
 
-    $(document).off('click.gt-edit').on('click.gt-edit', '.gt-popup-edit', function() {
+    $(document).off('click.gt-edit').on('click.gt-edit', '.gt-popup-edit', async function() {
         const $popup = $('#greeting-titles-custom-popup');
         const isEditMode = $popup.data('edit-mode') || false;
 
@@ -240,28 +259,19 @@ function createCustomPopup() {
             // ── 편집 모드 완료 → 저장 ──
             const charKey = getCurrentCharKey();
             if (!charKey) return;
-
-            const settings = extension_settings[extensionName];
-            if (!settings.charData) settings.charData = {};
-            if (!settings.charData[charKey]) settings.charData[charKey] = {};
+            if ($popup.data('char-key') !== charKey) {
+                $popup.hide();
+                toastr.warning('캐릭터가 변경되었습니다. 그리팅 목록을 다시 열어주세요.');
+                return;
+            }
 
             // 모든 input값 수집해서 저장
             $('#gt-popup-list-area .gt-title-edit-input').each(function() {
                 const idx = $(this).data('index');
-                const val = $(this).val().trim();
-                if (val !== '') {
-                    settings.charData[charKey][idx] = val;
-                } else {
-                    delete settings.charData[charKey][idx];
-                }
+                saveTitle(charKey, idx, String($(this).val()).trim());
             });
-
-            // charData 정리 (빈 캐릭터 데이터 제거)
-            if (Object.keys(settings.charData[charKey]).length === 0) {
-                delete settings.charData[charKey];
-            }
-
-            saveSettingsDebounced();
+            const settings = getSettings();
+            await saveSettings();
 
             // alt greeting 창이 열려있으면 title input도 동기화
             const updatedData = settings.charData && settings.charData[charKey] ? settings.charData[charKey] : {};
@@ -394,8 +404,8 @@ function renderPopupList(isEditMode) {
                         type="text"
                         class="gt-title-edit-input"
                         data-index="${idx}"
-                        placeholder="${content.substring(0, 40).replace(/"/g, '&quot;')}..."
-                        value="${savedTitle.replace(/"/g, '&quot;')}"
+                        placeholder="${escapeHtml(content.substring(0, 40))}..."
+                        value="${escapeHtml(savedTitle)}"
                         style="flex-grow:1; min-width:0; padding: 5px 10px; border-radius: 8px;
                                border: 1px solid rgba(87,184,148,0.4); background: rgba(87,184,148,0.05);
                                color: var(--SmartThemeBodyColor); font-size: 0.9em; outline: none;
@@ -438,8 +448,8 @@ function renderPopupList(isEditMode) {
             // ── 일반 모드 아이템 ──
             const hasTitle = savedTitle !== '';
             const displayTitle = hasTitle
-                ? `<b>${savedTitle}</b>`
-                : `<span style="opacity:0.8">${content.substring(0, 60)}...</span>`;
+                ? `<b>${escapeHtml(savedTitle)}</b>`
+                : `<span style="opacity:0.8">${escapeHtml(content.substring(0, 60))}...</span>`;
 
             const $item = $(`
                 <div class="gt-list-item" data-index="${idx}">
@@ -456,56 +466,32 @@ function renderPopupList(isEditMode) {
             `);
 
             // 그리팅 이동 클릭
-            $item.on('click', function(e) {
+            $item.on('click', async function(e) {
                 if ($(e.target).closest('.gt-copy-btn').length) return;
                 const targetIdx = $(this).data('index');
                 const hasMainGreeting = char.data && char.data.first_mes && char.data.first_mes.trim() !== '';
                 const commandIdx = hasMainGreeting ? targetIdx + 1 : targetIdx;
                 const title = storedData[targetIdx] && storedData[targetIdx].trim() !== '' ? storedData[targetIdx] : null;
 
-                const $textarea = $('#send_textarea');
-                const $sendBtn = $('#send_but');
-
-                if ($textarea.length && $sendBtn.length) {
-                    const hideStyleId = 'stc-force-hide-indicator';
-                    if ($(`#${hideStyleId}`).length === 0) {
-                        $('<style>')
-                            .attr('id', hideStyleId)
-                            .text('#stc_typing_indicator { display: none !important; opacity: 0 !important; visibility: hidden !important; }')
-                            .appendTo('head');
-                    }
-
-                    if (title) {
-                        toastr.info(title, '', {
-                            timeOut: 2000,
-                            preventDuplicates: true,
-                            positionClass: 'toast-top-center',
-                        });
-                    }
-
-                    const originalValue = $textarea.val();
-                    $textarea.val(`/swipes-go ${commandIdx}`).trigger('input');
-                    $sendBtn.trigger('click');
-
-                    setTimeout(() => {
-                        if ($textarea.val().startsWith('/swipes-go')) {
-                            $textarea.val(originalValue).trigger('input');
-                        }
-                    }, 50);
-
-                    setTimeout(() => {
-                        if (eventSource && event_types) {
-                            eventSource.emit(event_types.GENERATION_ENDED);
-                        }
-                    }, 100);
-
-                    setTimeout(() => {
-                        $('#stc_typing_indicator').remove();
-                        $(`#${hideStyleId}`).remove();
-                    }, 800);
-
-                } else {
-                    console.error('[GreetingTitles] 입력창을 찾을 수 없습니다.');
+                if (!Array.isArray(chat[0]?.swipes) || commandIdx >= chat[0].swipes.length) {
+                    toastr.warning('현재 채팅에서 이 그리팅을 선택할 수 없습니다. 새 채팅에서 다시 시도해주세요.');
+                    return;
+                }
+                if (document.body.dataset.generating || document.body.dataset.swiping) {
+                    toastr.warning('응답 생성 또는 스와이프가 끝난 뒤 다시 선택해주세요.');
+                    return;
+                }
+                try {
+                    await swipe(null, SWIPE_DIRECTION.RIGHT, {
+                        source: SWIPE_SOURCE.SWIPE_PICKER,
+                        forceMesId: 0,
+                        forceSwipeId: commandIdx,
+                        forceDuration: 0,
+                    });
+                    if (title) toastr.info(title, '', { timeOut: 2000, positionClass: 'toast-top-center' });
+                } catch (error) {
+                    console.error('[GreetingTitles] 그리팅 선택 실패:', error);
+                    toastr.error('그리팅 선택에 실패했습니다.');
                 }
             });
 
@@ -526,7 +512,7 @@ function renderPopupList(isEditMode) {
 
 // 복사 공통 함수
 function gtCopyGreeting(text, $btn) {
-    navigator.clipboard.writeText(text).then(() => {
+    Promise.resolve().then(() => copyText(text)).then(() => {
         const $icon = $btn.find('i');
         $icon.removeClass('fa-regular fa-copy').addClass('fa-solid fa-check');
         $btn.css({ opacity: '1', color: '#57b894' });
@@ -558,6 +544,7 @@ function openGreetingSelectPopup() {
     }
 
     const $popup = $('#greeting-titles-custom-popup');
+    $popup.data('char-key', charKey);
 
     // 모바일 환경일 경우 열 때마다 chat 영역 기준으로 위치 재계산
     if ($(window).width() <= 768) {
@@ -592,10 +579,10 @@ function openGreetingSelectPopup() {
 // =================================================================================
 
 function injectTitleInputs($context) {
-    if (!this_chid) return;
+    if (!getCurrentCharKey()) return;
 
     const $searchArea = $context ? $context : $('body');
-    const $greetings = $searchArea.find('.alternate_greeting[data-index]').not('.greeting-title-input-injected');
+    const $greetings = $searchArea.find('.alternate_greeting[data-index]').addBack('.alternate_greeting[data-index]');
 
     if ($greetings.length === 0) return;
 
@@ -606,6 +593,7 @@ function injectTitleInputs($context) {
         const $el = $(this);
         const index = $el.attr('data-index'); 
         
+        if ($el.closest('#alternate_greeting_form_template').length) return;
         if ($el.find('.greeting-title-input').length > 0) return;
 
         const settings = extension_settings[extensionName];
@@ -631,10 +619,17 @@ function injectTitleInputs($context) {
             e.stopPropagation(); 
         });
 
-        const $targetContainer = $el.find('summary .title_restorable .flex-container.alignItemsCenter');
+        const $targetContainer = $el.find('summary .title_restorable .flex-container.alignItemsCenter').first();
+        const $fallbackContainer = $el.find('summary').first();
         
         if ($targetContainer.length > 0) {
             $targetContainer.append($input);
+            $el.addClass('greeting-title-input-injected');
+        } else if ($fallbackContainer.length > 0) {
+            $fallbackContainer.append($input);
+            $el.addClass('greeting-title-input-injected');
+        } else {
+            $el.prepend($input);
             $el.addClass('greeting-title-input-injected');
         }
     });
@@ -648,25 +643,9 @@ $(document).on('input', '.greeting-title-input', function() {
 
     if (!charKey || index === undefined) return;
 
-    let settings = extension_settings[extensionName];
-    if (!settings) {
-        settings = DEFAULT_SETTINGS;
-        extension_settings[extensionName] = settings;
-    }
-    
-    if (!settings.charData) settings.charData = {};
-    if (!settings.charData[charKey]) settings.charData[charKey] = {};
-
-    if (value && value.trim() !== '') {
-        settings.charData[charKey][index] = value;
-    } else {
-        delete settings.charData[charKey][index];
-        if (Object.keys(settings.charData[charKey]).length === 0) {
-            delete settings.charData[charKey];
-        }
-    }
-    saveSettingsDebounced();
+    saveTitle(charKey, index, String(value));
 });
+$(document).on('change', '.greeting-title-input', () => saveSettings());
 
 // =================================================================================
 // 4. 순서 변경 동기화 로직
@@ -690,68 +669,69 @@ function swapGreetingTitles(indexA, indexB) {
     saveSettingsDebounced();
 }
 
-function handleMoveAndRefresh(currentIndex, targetIndex) {
-    swapGreetingTitles(currentIndex, targetIndex);
-    $('.greeting-title-input').remove(); 
-    $('.greeting-title-input-injected').removeClass('greeting-title-input-injected');
-}
-
-$(document).on('mousedown', '.move_up_alternate_greeting', function() {
-    const $greeting = $(this).closest('.alternate_greeting');
-    const index = parseInt($greeting.attr('data-index'));
-    if (isNaN(index) || index <= 0) return;
-    handleMoveAndRefresh(index, index - 1);
-});
-
-$(document).on('mousedown', '.move_down_alternate_greeting', function() {
-    const $greeting = $(this).closest('.alternate_greeting');
-    const index = parseInt($greeting.attr('data-index'));
-    const total = $greeting.parent().children('.alternate_greeting').length;
-    if (isNaN(index) || index >= total - 1) return;
-    handleMoveAndRefresh(index, index + 1);
-});
-
-$(document).on('mousedown', '.delete_alternate_greeting', function() {
-    const $greeting = $(this).closest('.alternate_greeting');
-    const deletedIndex = parseInt($greeting.attr('data-index'));
-    const charKey = getCurrentCharKey();
-    
-    if (!charKey || isNaN(deletedIndex)) return;
-    const settings = extension_settings[extensionName];
-    if (!settings || !settings.charData || !settings.charData[charKey]) return;
-
-    const data = settings.charData[charKey];
-    const newData = {};
-    Object.keys(data).forEach(key => {
-        const idx = parseInt(key);
-        if (idx < deletedIndex) newData[idx] = data[idx];
-        else if (idx > deletedIndex) newData[idx - 1] = data[idx];
-    });
-
-    settings.charData[charKey] = newData;
-    saveSettingsDebounced();
+function refreshTitleInputs() {
     $('.greeting-title-input').remove();
     $('.greeting-title-input-injected').removeClass('greeting-title-input-injected');
-});
+    injectTitleInputs($('body'));
+}
+
+let pendingDeletion = null;
+function applyConfirmedDeletion() {
+    if (!pendingDeletion) return;
+    const { charKey, index, count } = pendingDeletion;
+    const char = characters.find(character => (character.avatar || character.name) === charKey);
+    if (!char || !Array.isArray(char.data?.alternate_greetings) || char.data.alternate_greetings.length !== count - 1) return;
+    pendingDeletion = null;
+    const settings = getSettings();
+    const data = settings.charData?.[charKey];
+    if (!data) return;
+    const shifted = {};
+    for (const [key, title] of Object.entries(data)) {
+        const oldIndex = Number(key);
+        if (oldIndex < index) shifted[oldIndex] = title;
+        else if (oldIndex > index) shifted[oldIndex - 1] = title;
+    }
+    if (Object.keys(shifted).length) settings.charData[charKey] = shifted;
+    else delete settings.charData[charKey];
+    saveSettingsDebounced();
+    refreshTitleInputs();
+}
+
+// ST stops click propagation on these buttons, so listen in capture phase.
+document.addEventListener('click', event => {
+    const button = event.target.closest('.move_up_alternate_greeting, .move_down_alternate_greeting, .delete_alternate_greeting');
+    const block = button?.closest('.alternate_greeting[data-index]');
+    if (!block || block.closest('#alternate_greeting_form_template')) return;
+    const index = Number(block.dataset.index);
+    const charKey = getCurrentCharKey();
+    const count = characters[this_chid]?.data?.alternate_greetings?.length;
+    if (!charKey || !Number.isInteger(index) || !Number.isInteger(count)) return;
+    if (button.classList.contains('delete_alternate_greeting')) {
+        pendingDeletion = { charKey, index, count };
+        setTimeout(() => {
+            if (pendingDeletion?.charKey === charKey && pendingDeletion.index === index && pendingDeletion.count === count) pendingDeletion = null;
+        }, 30000);
+    } else {
+        const next = index + (button.classList.contains('move_up_alternate_greeting') ? -1 : 1);
+        if (next < 0 || next >= count) return;
+        swapGreetingTitles(index, next);
+        setTimeout(refreshTitleInputs, 0);
+    }
+}, true);
 
 // =================================================================================
 // 5. 버튼 주입 (UI Injection)
 // =================================================================================
 
 function injectGreetingListButton() {
-    if (!this_chid && this_chid !== 0) return;
-    const char = characters[this_chid];
-    if (!char || !char.data) return;
-
-    const altGreetings = char.data.alternate_greetings || [];
-    if (altGreetings.length === 0) return;
-
     const $targetDiv = $('#first_message_div');
     if ($targetDiv.length === 0) return;
     if ($targetDiv.find('.open_greeting_titles_list').length > 0) return;
 
     const $altBtn = $targetDiv.find('.open_alternate_greetings');
     if ($altBtn.length === 0) return;
+    const editorChid = $altBtn.data('chid');
+    if (editorChid === undefined || Number(editorChid) < 0) return;
 
     const $myBtn = $('<div>', {
         class: 'menu_button menu_button_icon open_greeting_titles_list margin0 interactable',
@@ -783,25 +763,16 @@ function injectGreetingListButton() {
 let observerDebounceTimer = null;
 
 const observer = new MutationObserver((mutations) => {
+    applyConfirmedDeletion();
     let shouldCheckInputs = false;
     let shouldCheckButton = false;
 
     // 변경 사항 스캔
     for (const mutation of mutations) {
-        if (mutation.addedNodes.length > 0 || mutation.type === 'attributes') {
-            const $target = $(mutation.target);
-            
-            // 조건 체크
-            if ($target.hasClass('alternate_greetings_list') || 
-                $target.find('.alternate_greeting').length > 0 ||
-                $target.hasClass('popup-content') ||
-                $target.closest('.alternate_greetings_list').length > 0) {
-                shouldCheckInputs = true;
-            }
-
-            if ($target.attr('id') === 'first_message_div' || $target.find('#first_message_div').length > 0) {
-                shouldCheckButton = true;
-            }
+        for (const node of mutation.addedNodes) {
+            if (!(node instanceof Element)) continue;
+            if (node.matches('.alternate_greeting, .alternate_greetings_list') || node.querySelector('.alternate_greeting')) shouldCheckInputs = true;
+            if (node.id === 'first_message_div' || node.querySelector('#first_message_div, .open_alternate_greetings')) shouldCheckButton = true;
         }
     }
 
@@ -898,9 +869,15 @@ function renderSettingsList() {
 
     let hasVisibleItems = false;
 
+    const characterByKey = new Map(characters.flatMap(character => [
+        [character.avatar, character], [character.name, character]
+    ]));
     Object.entries(settings.charData).forEach(([charKey, titles]) => {
-        const charCard = characters.find(c => c.avatar === charKey || c.name === charKey);
-        const displayName = charCard ? charCard.name : `(미설치/삭제됨: ${charKey})`;
+        if (!titles || typeof titles !== 'object') return;
+        const charCard = characterByKey.get(charKey);
+        const displayName = charCard ? charCard.name : characters.length === 0
+            ? `(캐릭터 목록 로딩 중: ${charKey})`
+            : `(현재 목록에서 찾을 수 없음: ${charKey})`;
         
         const lowerName = displayName.toLowerCase();
         const matchesName = lowerName.includes(searchTerm);
@@ -914,30 +891,30 @@ function renderSettingsList() {
         
         sortedIndexes.forEach((idx) => {
             const txt = titles[idx];
-            const char = characters.find(c => c.avatar === charKey || c.name === charKey);
+            const char = charCard;
             const greetingContent = char && char.data && char.data.alternate_greetings 
                 ? (char.data.alternate_greetings[parseInt(idx)] || '') 
                 : '';
             const hasContent = greetingContent.trim() !== '';
             titlesHtml += `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding:4px 8px; background:rgba(0,0,0,0.05); border-radius:4px; font-size:0.85rem;">
-                    <span>#${parseInt(idx) + 1}: <b>${txt}</b></span>
-                    ${hasContent ? `<button class="copy-greeting-btn" data-char-key="${charKey}" data-idx="${parseInt(idx)}" title="그리팅 전체 텍스트 복사"><i class="fa-regular fa-copy"></i> 복사</button>` : ''}
+                    <span>#${parseInt(idx) + 1}: <b>${escapeHtml(txt)}</b></span>
+                    ${hasContent ? `<button class="copy-greeting-btn" data-char-key="${escapeHtml(charKey)}" data-idx="${parseInt(idx)}" title="그리팅 전체 텍스트 복사"><i class="fa-regular fa-copy"></i> 복사</button>` : ''}
                 </div>`;
         });
 
         const html = `
             <div class="title-list-item" style="border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 10px;">
                 <div class="title-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                    <strong style="font-size: 1.1em; color: var(--mainColor);">${displayName}</strong>
+                    <strong style="font-size: 1.1em; color: var(--mainColor);">${escapeHtml(displayName)}</strong>
                     <div style="display:flex; gap:5px;">
-                        <button class="backup-single-btn" data-key="${charKey}" title="이 캐릭터 데이터만 백업(JSON)">
+                        <button class="backup-single-btn" data-key="${escapeHtml(charKey)}" title="이 캐릭터 데이터만 백업(JSON)">
                             <i class="fa-solid fa-download"></i>
                         </button>
-                        <button class="migrate-btn" data-key="${charKey}" title="이 데이터를 현재 캐릭터로 가져오기">
+                        <button class="migrate-btn" data-key="${escapeHtml(charKey)}" title="이 데이터를 현재 캐릭터로 가져오기">
                             <i class="fa-solid fa-file-import"></i> 이동
                         </button>
-                        <button class="delete-btn red_button" data-key="${charKey}" title="삭제">
+                        <button class="delete-btn red_button" data-key="${escapeHtml(charKey)}" title="삭제">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
@@ -962,7 +939,7 @@ function renderSettingsList() {
         }
         const greetingText = char.data.alternate_greetings[idx] || '';
         if (!greetingText) return;
-        navigator.clipboard.writeText(greetingText).then(() => {
+        Promise.resolve().then(() => copyText(greetingText)).then(() => {
             toastr.success('그리팅 텍스트가 복사되었습니다!', '', { timeOut: 1500, positionClass: 'toast-top-center' });
         }).catch(() => {
             toastr.error('복사에 실패했습니다.', '', { timeOut: 1500 });
@@ -1027,9 +1004,13 @@ function renderSettingsList() {
 // =================================================================================
 
 (async function() {
-    if (!extension_settings[extensionName]) {
-        extension_settings[extensionName] = DEFAULT_SETTINGS;
-    }
+    getSettings();
+    eventSource.on(event_types.APP_READY, () => {
+        renderSettingsList();
+        injectGreetingListButton();
+    });
+    eventSource.on(event_types.CHARACTER_EDITOR_OPENED, injectGreetingListButton);
+    eventSource.on(event_types.CHARACTER_PAGE_LOADED, renderSettingsList);
 
     try {
         const settingsHtml = await $.get(`${extensionFolderPath}/settings.html`);
@@ -1063,7 +1044,7 @@ function renderSettingsList() {
                 try {
                     const importedData = JSON.parse(e.target.result);
                     
-                    if (typeof importedData !== 'object' || importedData === null) {
+                    if (typeof importedData !== 'object' || importedData === null || Array.isArray(importedData)) {
                         throw new Error('Invalid JSON format');
                     }
 
@@ -1073,14 +1054,18 @@ function renderSettingsList() {
                     let importCount = 0;
 
                     Object.keys(importedData).forEach(charKey => {
-                        if (typeof importedData[charKey] === 'object') {
+                        if (['__proto__', 'constructor', 'prototype'].includes(charKey)) return;
+                        const titles = importedData[charKey];
+                        if (titles && typeof titles === 'object' && !Array.isArray(titles)) {
+                            const validTitles = Object.fromEntries(Object.entries(titles).filter(([index, title]) => /^\d+$/.test(index) && typeof title === 'string'));
+                            if (!Object.keys(validTitles).length) return;
                             if (settings.charData[charKey]) {
                                 settings.charData[charKey] = {
                                     ...settings.charData[charKey],
-                                    ...importedData[charKey]
+                                    ...validTitles
                                 };
                             } else {
-                                settings.charData[charKey] = importedData[charKey];
+                                settings.charData[charKey] = validTitles;
                             }
                             importCount++;
                         }
@@ -1118,5 +1103,6 @@ function renderSettingsList() {
 
     injectGreetingListButton();
     
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    injectTitleInputs($('body'));
+    observer.observe(document.body, { childList: true, subtree: true });
 })();
